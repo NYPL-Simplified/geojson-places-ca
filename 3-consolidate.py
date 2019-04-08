@@ -43,6 +43,7 @@ class Place(object):
     def __init__(self, type, geography, id, name,
                  french_name=None,
                  abbreviated_name=None, parent=None,
+                 parent_id=None,
     ):
         """Rationalizes geographic data from multiple scales into a single
         format.
@@ -54,6 +55,7 @@ class Place(object):
         self.abbreviated_name = abbreviated_name
         self.french_name = french_name
         self.parent = parent
+        self.parent_id = parent_id
         self.aliases = set()
 
         # If the name or its abbreviation contains diacritics, create
@@ -86,6 +88,8 @@ class Place(object):
             aliases.append(dict(name=self.french_name, language='fre'))
         if self.parent:
             data['parent_id'] = self.parent.id
+        elif self.parent_id:
+            data['parent_id'] = self.parent_id
         else:
             data['parent_id'] = None
         return data
@@ -181,7 +185,15 @@ class CensusDivisions(object):
     @classmethod
     def from_filename(cls, filename, provinces):
         for division in features(filename):
-            set_trace()
+            properties = division.properties
+            province_id = properties['PRUID']
+            name = properties['CDNAME']
+            id = properties['CDUID']
+            # provinces.by_name[properties['PRNAME']]
+            yield Place(
+                'county', division.geometry, id, name,
+                None, parent_id=province_id
+            )
 
 
 class Cities(object):
@@ -201,13 +213,12 @@ class Cities(object):
 # provinces have counties, but for the provinces that do, it looks
 # like the census divisions are the counties.
 for census_division in CensusDivisions.from_filename(
-    "gcd_000b11a_e.zip", None
+    "gcd_000b11a_e.json", None
 ):
     print census_division.output
 
 
 
-set_trace()
 # Attach each city to its province. It's not clear yet which file best
 # corresponds to the everyday notion of 'city'.
 for city in Cities.from_filename("gcd_000b11a_e.json", provinces):
