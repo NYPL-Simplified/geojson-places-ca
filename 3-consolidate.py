@@ -175,51 +175,38 @@ class Provinces(object):
         self.by_abbreviation[province.abbreviated_name] = province
         self.by_id[province.id] = province
 
+class CensusDivisions(object):
+    "Census divisions--basically counties."
+
+    @classmethod
+    def from_filename(cls, filename, provinces):
+        for division in features(filename):
+            set_trace()
+
+
 class Cities(object):
-    "Census divisions--basically cities and towns."
-
-    @classmethod
-    def from_directory(cls, input_dir, provinces):
-        for filename in sorted(os.listdir(input_dir)):
-            if not filename.endswith("_place_500k.json"):
-                continue
-            for place in Cities.from_file(filename, provinces):
-                yield place
-
-    
-    @classmethod
-    def from_file(cls, filename, provinces):
-        default_parent = None
-        for place in features(filename):
-            props = place.properties
-            # Every place in a file should be from the same province, but
-            # just in case, we check every time.
-            parent = default_parent
-            if 'ZCTA5CE10' in props:
-                # This is a ZIP code. We're going to handle these
-                # separately, later.
-                continue
-            if 'PROVINCEFP' in props:
-                province_id = props['PROVINCEFP']
-                parent = provinces.by_id[province_id]
-                default_parent = parent
-            name = props['NAME']
-            parent.saw_place_name(name)
-            yield Place('city', place.geometry, props['GEOID'],
-                        name, parent=parent)
+    """???"""
+    pass
 
 # Extract a shapefile from Canada from a list of countries.
-canada = Nation.from_filename("ne_10m_admin_0_countries.json", "Canada")
-print canada.output
+#canada = Nation.from_filename("ne_10m_admin_0_countries.json", "Canada")
+#print canada.output
 
 # Extract shapefiles for each province and attach them to Canada.
-provinces = Provinces.from_filename("gpr_000b11a_e.json", canada)
-for province in provinces.by_id.values():
-    print province.output
+#provinces = Provinces.from_filename("gpr_000b11a_e.json", canada)
+#for province in provinces.by_id.values():
+#    print province.output
 
 # Attach each census division to its province as a county. Not all
 # provinces have counties, but for the provinces that do, it looks
 # like the census divisions are the counties.
+for census_division in CensusDivisions.from_filename(
+    "gcd_000b11a_e.zip", None
+):
+    print census_division.output
+
+
+
 set_trace()
 # Attach each city to its province. It's not clear yet which file best
 # corresponds to the everyday notion of 'city'.
@@ -228,3 +215,4 @@ for city in Cities.from_filename("gcd_000b11a_e.json", provinces):
 
 # Attach each designated place to its province. These are communities
 # too small to show up in the other files. We treat them as cities.
+r 
