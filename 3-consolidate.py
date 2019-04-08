@@ -7,7 +7,6 @@ import unicodedata
 from pdb import set_trace
 
 cb_input_dir = "2-ca-geojson"
-output_dir = "3-consolidated"
 
 def ascii_alias(s):
     """If this name contains combining characters, return the
@@ -34,9 +33,6 @@ def features(filename, encoding='windows-1252'):
     collection = geojson.loads(data)
     for feature in collection.features:
         yield feature
-
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
 
 class Place(object):
 
@@ -71,7 +67,6 @@ class Place(object):
         """A Place is output as two lines: one containing metadata
         and one containing a GeoJSON object.
         """
-        return json.dumps(self.jsonable)
         return "\n".join([json.dumps(self.jsonable), json.dumps(self.geography)])
         
     @property
@@ -83,7 +78,8 @@ class Place(object):
             aliases = []
             data['aliases'] = aliases
             for alias in self.aliases:
-                aliases.append(dict(name=alias, language='eng'))
+                if alias != self.name and alias != self.french_name:
+                    aliases.append(dict(name=alias, language='eng'))
         if self.french_name:
             aliases.append(dict(name=self.french_name, language='fre'))
         if self.parent:
@@ -183,47 +179,62 @@ class CensusDivisions(object):
     "Census divisions--basically counties."
 
     @classmethod
-    def from_filename(cls, filename, provinces):
+    def from_filename(cls, filename, provinces, types=None):
         for division in features(filename):
             properties = division.properties
             province_id = properties['PRUID']
             name = properties['CDNAME']
             id = properties['CDUID']
-            # provinces.by_name[properties['PRNAME']]
+            if types and properties['CDTYPE'] not in types:
+                continue
             yield Place(
                 'county', division.geometry, id, name,
-                None, parent_id=province_id
+                parent=provinces.by_id[province_id]
+            )
+
+class Cities(object):
+    """Cities and towns."""
+    @classmethod
+    def from_filename(cls, filename, provinces):
+        for city in features(filename):
+            properties = city.properties
+            province_id = properties['PRUID']
+            name = properties['PCNAME']
+            id = properties['PCUID']
+
+            # These fields can be used to get more information about the
+            # type and size of the population center:
+            # 
+            # https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/tab/t1_12-eng.cfm
+            # type = properties['PCTYPE']
+
+            # https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/tab-eng.cfm
+            # cls = properties['PCCLASS']
+            yield Place(
+                'city', city.geometry, id, name,
+                parent=provinces.by_id[province_id],
             )
 
 
-class Cities(object):
-    """???"""
-    pass
-
 # Extract a shapefile from Canada from a list of countries.
-#canada = Nation.from_filename("ne_10m_admin_0_countries.json", "Canada")
-#print canada.output
+canada = Nation.from_filename("ne_10m_admin_0_countries.json", "Canada")
+print canada.output
 
 # Extract shapefiles for each province and attach them to Canada.
-#provinces = Provinces.from_filename("gpr_000b11a_e.json", canada)
-#for province in provinces.by_id.values():
-#    print province.output
+provinces = Provinces.from_filename("gpr_000b11a_e.json", canada)
+for province in provinces.by_id.values():
+    print province.output
 
-# Attach each census division to its province as a county. Not all
-# provinces have counties, but for the provinces that do, it looks
-# like the census divisions are the counties.
-for census_division in CensusDivisions.from_filename(
-    "gcd_000b11a_e.json", None
+# Attach each county to its province.
+# As per https://www150.statcan.gc.ca/n1/pub/92-151-g/2011001/tech-eng.htm,
+# * CT and CTY are counties
+# * MRC are "county-like political entities" in Quebec
+for county in CensusDivisions.from_filename(
+    "gcd_000b11a_e.json", provinces, types=('CT', 'CTY', 'MRC')
 ):
-    print census_division.output
+    print county.output
 
-
-
-# Attach each city to its province. It's not clear yet which file best
-# corresponds to the everyday notion of 'city'.
-for city in Cities.from_filename("gcd_000b11a_e.json", provinces):
+# Attach each city to its province.
+for city in Cities.from_filename("gpc_000b11a_e.json", provinces):
     print city.output
-
-# Attach each designated place to its province. These are communities
-# too small to show up in the other files. We treat them as cities.
-r 
+ 
