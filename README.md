@@ -1,6 +1,6 @@
 This repository includes data from multiple sources, and a script which consolidates the data to create a flat list of annotated GeoJSON objects representing the boundaries of a large number of places in Canada:
 
-* The nation of Canada itself (taken from ne_10m_admin_0_boundary_lines_land.zip)
+* The nation of Canada itself (taken from ne_10m_admin_0_countries.zip)
 * Each province (taken from gpr_000b11a_e.zip)
 * Each census division (~counties) (taken from gcd_000b11a_e.zip)
 
