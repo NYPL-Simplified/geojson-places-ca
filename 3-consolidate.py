@@ -69,6 +69,7 @@ class Place(object):
         """A Place is output as two lines: one containing metadata
         and one containing a GeoJSON object.
         """
+        return json.dumps(self.jsonable)
         return "\n".join([json.dumps(self.jsonable), json.dumps(self.geography)])
         
     @property
@@ -109,6 +110,10 @@ class Nation(Place):
                 abbreviation
             )
 
+    def __init__(self, *args, **kwargs):
+        super(Nation, self).__init__(*args, **kwargs)
+        self.provinces = []
+
 
 class Province(Place):
 
@@ -129,15 +134,33 @@ class Provinces(object):
     import re
     non_alpha = re.compile("[^A-Z]")
 
+    # The data we have doesn't include the official postal
+    # abbreviations for the provinces, so we need to include it here.
+    abbreviations = {
+        "Alberta": "AB",
+        "British Columbia": "BC",
+        "Manitoba": "MB",
+        "New Brunswick": "NB",
+        "Newfoundland and Labrador": "NL",
+        "Nova Scotia": "NS",
+        "Northwest Territories": "NT",
+        "Nunavut": "NU",
+        "Ontario": "ON",
+        "Prince Edward Island": "PE",
+        "Quebec": "QC",
+        "Saskatchewan": "SK",
+        "Yukon": "YT",
+    }
+
     @classmethod
     def from_filename(cls, filename, nation):
         provinces = cls()
         for province in features(filename):
             props = province.properties
-            abbreviation = cls.non_alpha.sub("", props['PRFABBR'].upper())
+            name = props['PRENAME']
             place = Province(
                 'state', province.geometry, id=props['PRUID'],
-                name=props['PRENAME'], abbreviated_name=abbreviation,
+                name=name, abbreviated_name=cls.abbreviations[name],
                 parent=nation, french_name=props['PRFNAME']
             )
             provinces.add(place)
@@ -185,14 +208,23 @@ class Cities(object):
             yield Place('city', place.geometry, props['GEOID'],
                         name, parent=parent)
 
+# Extract a shapefile from Canada from a list of countries.
 canada = Nation.from_filename("ne_10m_admin_0_countries.json", "Canada")
+print canada.output
+
+# Extract shapefiles for each province and attach them to Canada.
 provinces = Provinces.from_filename("gpr_000b11a_e.json", canada)
 for province in provinces.by_id.values():
     print province.output
 
-# Having gone through all the provinces, we can now make a GeoJSON
-# object representing the nation as a whole.
-print canada.output
-
+# Attach each census division to its province as a county. Not all
+# provinces have counties, but for the provinces that do, it looks
+# like the census divisions are the counties.
+set_trace()
+# Attach each city to its province. It's not clear yet which file best
+# corresponds to the everyday notion of 'city'.
 for city in Cities.from_filename("gcd_000b11a_e.json", provinces):
     print city.output
+
+# Attach each designated place to its province. These are communities
+# too small to show up in the other files. We treat them as cities.
